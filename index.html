@@ -1396,20 +1396,36 @@ function make3D(host,o){
   const s={scene,camera,renderer:null,controls:null,visible:true,update:null,active:false,host};
   const ov=document.createElement('div');ov.className='lite-ov';ov.hidden=true;ov.innerHTML='<button class="btn pri" type="button">Activar vista 3D</button><small>Modo ligero activo</small>';host.appendChild(ov);
   ov.querySelector('button').addEventListener('click',()=>s.activate());
-  let built=false;
+  s.target=new THREE.Vector3(...o.target);
+  // Contextos WebGL bajo demanda: el celular sólo permite unos cuantos a la vez,
+  // así que cada escena crea su renderer al acercarse a la pantalla y lo libera al salir.
+  let want=!liteOn,near=false,releaseT=0;
   const resize=()=>{if(!s.renderer)return;const w=host.clientWidth,h=host.clientHeight;if(!w||!h)return;s.renderer.setSize(w,h);camera.aspect=w/h;camera.updateProjectionMatrix();if(s.active)s.renderer.render(scene,camera);};
-  s.activate=function(){
-    if(!built){let renderer;try{renderer=new THREE.WebGLRenderer({antialias:true,alpha:true});}catch(e){host.classList.add('no3d');ov.hidden=true;return;}
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));renderer.setClearColor(0x000000,0);host.insertBefore(renderer.domElement,host.firstChild);s.renderer=renderer;
-      if(THREE.OrbitControls){const controls=new THREE.OrbitControls(camera,renderer.domElement);controls.target.set(...o.target);controls.enableDamping=true;controls.enableZoom=false;controls.enablePan=false;controls.maxPolarAngle=Math.PI*0.495;
-        if(coarse){controls.enabled=false;renderer.domElement.style.touchAction='pan-y';}controls.update();s.controls=controls;}
-      new ResizeObserver(resize).observe(host);built=true;}
-    s.renderer.domElement.hidden=false;ov.hidden=true;s.active=true;resize();};
-  s.deactivate=function(){s.active=false;if(s.renderer)s.renderer.domElement.hidden=true;ov.hidden=false;};
+  new ResizeObserver(resize).observe(host);
+  function build(){
+    if(s.renderer)return true;let renderer;
+    try{renderer=new THREE.WebGLRenderer({antialias:!coarse,alpha:true,powerPreference:'low-power'});}catch(e){host.classList.add('no3d');ov.hidden=true;return false;}
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,coarse?1.5:2));renderer.setClearColor(0x000000,0);host.insertBefore(renderer.domElement,host.firstChild);s.renderer=renderer;
+    renderer.domElement.addEventListener('webglcontextlost',ev=>{ev.preventDefault();release(true);if(want&&near)setTimeout(()=>{if(want&&near)show();},300);});
+    if(THREE.OrbitControls){const controls=new THREE.OrbitControls(camera,renderer.domElement);controls.target.copy(s.target);controls.enableDamping=true;controls.enableZoom=false;controls.enablePan=false;controls.maxPolarAngle=Math.PI*0.495;
+      if(coarse){controls.enabled=false;renderer.domElement.style.touchAction='pan-y';}controls.update();s.controls=controls;}
+    return true;}
+  function release(lost){
+    if(!s.renderer)return;s.active=false;
+    if(s.controls){s.target.copy(s.controls.target);s.controls.dispose();s.controls=null;}
+    const r=s.renderer;s.renderer=null;r.domElement.remove();
+    try{r.dispose();if(!lost)r.forceContextLoss();}catch(e){}}
+  function show(){if(!build())return;s.renderer.domElement.hidden=false;ov.hidden=true;s.active=true;resize();}
+  s.activate=function(){want=true;ov.hidden=true;if(near)show();};
+  s.deactivate=function(){want=false;release();ov.hidden=false;};
   SCENES.push(s);
-  onVisible(host,v=>s.visible=v);
-  loops.add(dt=>{if(!s.visible)return;s.update&&s.update(dt);if(!s.active)return;s.controls&&s.controls.update();s.renderer.render(scene,camera);});
-  if(liteOn)s.deactivate();else s.activate();
+  onVisible(host,v=>{s.visible=v;});
+  if('IntersectionObserver' in window){
+    new IntersectionObserver(es=>es.forEach(e=>{near=e.isIntersecting;clearTimeout(releaseT);
+      if(near){if(want)show();}else releaseT=setTimeout(()=>{if(!near)release();},800);}),{rootMargin:'400px 0px'}).observe(host);
+  }else near=true;
+  loops.add(dt=>{if(!s.visible)return;s.update&&s.update(dt);if(!s.active||!s.renderer)return;s.controls&&s.controls.update();s.renderer.render(scene,camera);});
+  if(liteOn){ov.hidden=false;}else if(near)show();
   return s;
 }
 function setLite(on){liteOn=on;try{localStorage.setItem('cine-lite',on?'1':'0');}catch(e){}SCENES.forEach(sc=>on?sc.deactivate():sc.activate());}
@@ -1549,7 +1565,7 @@ function basic(color,o){return new THREE.MeshBasicMaterial(Object.assign({color:
 function dashLine(color){const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(new Float32Array(6*8),3));const l=new THREE.LineSegments(g,new THREE.LineBasicMaterial({color:new THREE.Color(color),transparent:true,opacity:0.75}));l.frustumCulled=false;return l;}
 function setSegs(l,segs){const a=l.geometry.attributes.position.array;let n=0;segs.forEach(([p,q])=>{const L=p.distanceTo(q);const k=Math.max(1,Math.floor(L/0.6));for(let i=0;i<k&&n<a.length/6;i+=2){const t0=i/k,t1=Math.min(1,(i+1)/k);const s0=p.clone().lerp(q,t0),s1=p.clone().lerp(q,t1);a.set([s0.x,s0.y,s0.z,s1.x,s1.y,s1.z],n*6);n++;}});l.geometry.setDrawRange(0,n*2);l.geometry.attributes.position.needsUpdate=true;}
 function grow(l,cap){l.geometry.setAttribute('position',new THREE.BufferAttribute(new Float32Array(6*cap),3));}
-function shiftCam(s,dx,dy,dz){if(!s)return;const d=new THREE.Vector3(dx,dy||0,dz||0);if(s.controls){s.controls.target.add(d);}s.camera.position.add(d);if(!s.controls)s.camera.lookAt(s.camera.position.clone().sub(d));}
+function shiftCam(s,dx,dy,dz){if(!s)return;const d=new THREE.Vector3(dx,dy||0,dz||0);if(s.controls){s.controls.target.add(d);}if(s.target&&!s.controls)s.target.add(d);s.camera.position.add(d);if(!s.controls)s.camera.lookAt(s.camera.position.clone().sub(d));}
 function stepsTo(el,arr){el.innerHTML=arr.map(x=>`<li>${x}</li>`).join('');}
 function verdict(el,kind,text){el.className='verdict'+(kind?' '+kind:'');el.textContent=text;}
 function speedGroup(name,cb){document.querySelectorAll(`[data-spgroup="${name}"] [data-sp]`).forEach(b=>b.addEventListener('click',()=>{b.parentElement.querySelectorAll('[data-sp]').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));cb(+b.dataset.sp);}));}
