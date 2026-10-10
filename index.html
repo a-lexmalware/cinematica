@@ -1382,7 +1382,7 @@ const SCENES=[];
 const LITE=(function(){let pref=null;try{pref=localStorage.getItem('cine-lite');}catch(e){}
   if(pref==='1')return true;if(pref==='0')return false;
   const nc=navigator.connection||{};const mem=navigator.deviceMemory||8,cores=navigator.hardwareConcurrency||8;
-  return !!(nc.saveData||mem<=3||(coarse&&cores<=4));})();
+  return !!(nc.saveData||mem<=2);})();
 let liteOn=LITE;
 function make3D(host,o){
   if(!window.THREE){host.classList.add('no3d');return null;}
