@@ -364,6 +364,9 @@ ol.tlist li:first-child{border-top:0}
 /* v9 portada limpia */
 .portada{gap:14px 20px;padding-block:24px 4px}
 .pdiv{width:1px;align-self:stretch;min-height:44px;background:var(--line)}
+.fhead{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px 20px;margin:36px 0 16px;padding-top:24px;border-top:1px solid var(--line)}
+.fhead h3{font-size:22px;margin:0}
+.fhead .tag{margin-bottom:4px}
 .pinfo{display:grid;gap:4px;min-width:0;flex:1 1 420px}
 .pteam{list-style:none;margin:4px 0 0;padding:0;display:flex;flex-wrap:wrap;gap:4px 8px}
 .pteam li{font-size:13.5px;color:var(--ice);background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:3px 11px;line-height:1.4}
@@ -842,7 +845,7 @@ footer{padding-block:40px;color:var(--dim);font-size:14px}
         <div class="b"><small>Cinemática · cómo</small><strong>v, x</strong></div>
       </div>
     </div>
-    <div class="row printrow"><button class="btn" id="printBtn" type="button"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M7 8V3h10v5M7 17H4v-7h16v7h-3M7 14h10v7H7z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>Imprimir formulario (1 hoja)</button></div>
+    <div class="fhead"><div><p class="tag">Formulario</p><h3>Todas las fórmulas de los Temas 2 y 3</h3></div><button class="btn pri" id="printBtn" type="button"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M7 8V3h10v5M7 17H4v-7h16v7h-3M7 14h10v7H7z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>Imprimir formulario (1 hoja)</button></div>
     <div class="fgrid">
       <div class="card"><p class="tag">Velocidad</p><p class="formula">v̄ = Δx/Δt<br>v = dx/dt</p></div>
       <div class="card"><p class="tag">Aceleración</p><p class="formula">a = Δv/Δt</p></div>
@@ -2174,7 +2177,7 @@ const PRES=(function(){
 /* ---------- FORMULARIO IMPRIMIBLE ---------- */
 (function(){
   const btn=$('#printBtn');let inFrame=true;try{inFrame=window.self!==window.top;}catch(e){inFrame=true;}
-  if(inFrame||typeof window.print!=='function'){btn.closest('.printrow').hidden=true;return;}
+  if(inFrame||typeof window.print!=='function'){btn.hidden=true;return;}
   btn.addEventListener('click',()=>{const g=$('#psGrid');g.innerHTML='';
     document.querySelectorAll('#formulario .fgrid .card').forEach(c=>{const k=c.querySelector('.tag'),fo=c.querySelector('.formula');if(!k||!fo)return;
       const d=document.createElement('div');d.className='ps-card';d.innerHTML=`<p class="ps-k">${k.textContent}</p><p class="ps-f">${fo.innerHTML}</p>`;g.appendChild(d);});
